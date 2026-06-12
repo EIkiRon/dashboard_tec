@@ -138,7 +138,10 @@ td{padding:6px 10px;color:#282D3C;border-bottom:1px solid #F0F0F0;}
     <label style="font-size:11px;font-weight:600;color:#5A6070;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px;">Client ID (Application ID)</label>
     <input id="sp-cid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%;border:1.5px solid #EEEEEE;border-radius:8px;padding:9px 12px;font-size:13px;color:#282D3C;font-family:inherit;outline:none;margin-bottom:14px;">
     <label style="font-size:11px;font-weight:600;color:#5A6070;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px;">Tenant ID (Directory ID)</label>
-    <input id="sp-tid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%;border:1.5px solid #EEEEEE;border-radius:8px;padding:9px 12px;font-size:13px;color:#282D3C;font-family:inherit;outline:none;margin-bottom:6px;">
+    <input id="sp-tid" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" style="width:100%;border:1.5px solid #EEEEEE;border-radius:8px;padding:9px 12px;font-size:13px;color:#282D3C;font-family:inherit;outline:none;margin-bottom:14px;">
+    <label style="font-size:11px;font-weight:600;color:#5A6070;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:4px;">Redirect URI <span style="font-weight:400;text-transform:none;color:#8A909E;">(URL donde está alojado este archivo)</span></label>
+    <input id="sp-redirect" placeholder="https://tuempresa.sharepoint.com/sites/TEC/dashboard_tec.html" style="width:100%;border:1.5px solid #EEEEEE;border-radius:8px;padding:9px 12px;font-size:13px;color:#282D3C;font-family:inherit;outline:none;margin-bottom:4px;">
+    <div style="font-size:10px;color:#8A909E;margin-bottom:14px;">⚠ Debe ser una URL <b>https://</b> registrada en Azure AD. No se puede usar <code>file://</code>. <a href="#" onclick="document.getElementById('sp-guide-modal').style.display='flex';return false;" style="color:#282D3C;">Ver opciones de alojamiento →</a></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
       <button onclick="document.getElementById('sp-config-modal').style.display='none'" style="background:#F0F0F0;color:#282D3C;border:none;border-radius:20px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;">Cancelar</button>
       <button onclick="spSaveAndConnect()" style="background:#282D3C;color:#FAD2AF;border:none;border-radius:20px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;">Guardar y conectar</button>
@@ -150,7 +153,11 @@ td{padding:6px 10px;color:#282D3C;border-bottom:1px solid #F0F0F0;}
 <div id="sp-files-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9990;align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:16px;padding:28px;max-width:540px;width:92%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 16px 48px rgba(0,0,0,.25);">
     <div style="font-size:16px;font-weight:700;color:#282D3C;margin-bottom:4px;">📂 Seleccionar archivo Excel</div>
-    <div style="font-size:12px;color:#8A909E;margin-bottom:16px;">Archivos Excel recientes en OneDrive y SharePoint</div>
+    <div style="font-size:12px;color:#8A909E;margin-bottom:12px;">Busca en OneDrive y SharePoint</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input id="sp-search-input" placeholder="Buscar por nombre del archivo..." style="flex:1;border:1.5px solid #EEEEEE;border-radius:8px;padding:8px 12px;font-size:13px;color:#282D3C;font-family:inherit;outline:none;">
+      <button onclick="spSearchFiles()" style="background:#282D3C;color:#FAD2AF;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">Buscar</button>
+    </div>
     <div id="sp-file-list" style="overflow-y:auto;flex:1;min-height:80px;"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:14px;">
       <button onclick="document.getElementById('sp-files-modal').style.display='none'" style="background:#F0F0F0;color:#282D3C;border:none;border-radius:20px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;">Cancelar</button>
@@ -736,30 +743,35 @@ function exportExcel() {
 }
 
 // ── SharePoint / MSAL ──────────────────────────────────────────
-var SP = { clientId:'', tenantId:'', token:null, fileId:null, fileName:null, msalApp:null };
+var SP = { clientId:'', tenantId:'', token:null, fileId:null, fileName:null, driveId:null, msalApp:null };
 try {
-  SP.clientId  = localStorage.getItem('mgi_cid')   || '';
-  SP.tenantId  = localStorage.getItem('mgi_tid')   || '';
-  SP.fileId    = localStorage.getItem('mgi_fid')   || '';
-  SP.fileName  = localStorage.getItem('mgi_fname') || '';
+  SP.clientId   = localStorage.getItem('mgi_cid')      || '';
+  SP.tenantId   = localStorage.getItem('mgi_tid')      || '';
+  SP.redirectUri= localStorage.getItem('mgi_redirect') || '';
+  SP.fileId     = localStorage.getItem('mgi_fid')      || '';
+  SP.fileName   = localStorage.getItem('mgi_fname')    || '';
+  SP.driveId    = localStorage.getItem('mgi_driveid')  || '';
 } catch(e) {}
 
 function spSave() {
   try {
-    localStorage.setItem('mgi_cid',   SP.clientId);
-    localStorage.setItem('mgi_tid',   SP.tenantId);
-    localStorage.setItem('mgi_fid',   SP.fileId   || '');
-    localStorage.setItem('mgi_fname', SP.fileName || '');
+    localStorage.setItem('mgi_cid',      SP.clientId);
+    localStorage.setItem('mgi_tid',      SP.tenantId);
+    localStorage.setItem('mgi_redirect', SP.redirectUri || '');
+    localStorage.setItem('mgi_fid',      SP.fileId   || '');
+    localStorage.setItem('mgi_fname',    SP.fileName || '');
+    localStorage.setItem('mgi_driveid',  SP.driveId  || '');
   } catch(e) {}
 }
 
 function spGetMSAL() {
   if(SP.msalApp) return SP.msalApp;
+  var redirectUri = SP.redirectUri || window.location.href.split('#')[0].split('?')[0];
   SP.msalApp = new msal.PublicClientApplication({
     auth: {
       clientId:    SP.clientId,
       authority:   'https://login.microsoftonline.com/' + SP.tenantId,
-      redirectUri: window.location.origin + window.location.pathname
+      redirectUri: redirectUri
     },
     cache: { cacheLocation:'sessionStorage', storeAuthStateInCookie:false }
   });
@@ -791,9 +803,12 @@ function spConnect() {
 }
 
 function spSaveAndConnect() {
-  SP.clientId = document.getElementById('sp-cid').value.trim();
-  SP.tenantId = document.getElementById('sp-tid').value.trim();
+  SP.clientId   = document.getElementById('sp-cid').value.trim();
+  SP.tenantId   = document.getElementById('sp-tid').value.trim();
+  SP.redirectUri= document.getElementById('sp-redirect').value.trim();
   if(!SP.clientId || !SP.tenantId) { alert('Ingresa el Client ID y el Tenant ID.'); return; }
+  if(!SP.redirectUri) { alert('Ingresa el Redirect URI (URL donde está alojado este archivo).'); return; }
+  if(!SP.redirectUri.startsWith('https://')) { alert('El Redirect URI debe empezar con https://\n\nNo puedes usar file:// ni http://localhost con Azure AD.\n\nSube el archivo a SharePoint o GitHub Pages primero.'); return; }
   spSave();
   document.getElementById('sp-config-modal').style.display = 'none';
   spDoConnect();
@@ -816,29 +831,71 @@ async function spDoConnect() {
 
 async function spOpenFilePicker() {
   document.getElementById('sp-files-modal').style.display = 'flex';
-  var list = document.getElementById('sp-file-list');
+  document.getElementById('sp-search-input').value = '';
+  spSearchFiles();
+}
+
+async function spSearchFiles() {
+  var query = (document.getElementById('sp-search-input').value || '').trim();
+  var list  = document.getElementById('sp-file-list');
   list.innerHTML = '<div style="color:#8A909E;padding:16px 0;text-align:center;">Buscando archivos Excel...</div>';
   try {
-    var res  = await fetch(
-      "https://graph.microsoft.com/v1.0/me/drive/search(q='.xlsx')?$top=25&$select=name,id,parentReference,lastModifiedDateTime",
-      { headers:{ 'Authorization':'Bearer '+SP.token } }
-    );
+    // Use Microsoft Search API — covers both OneDrive and SharePoint
+    var searchQuery = query ? query + ' filetype:xlsx' : 'filetype:xlsx';
+    var res = await fetch('https://graph.microsoft.com/v1.0/search/query', {
+      method: 'POST',
+      headers: { 'Authorization':'Bearer '+SP.token, 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        requests:[{
+          entityTypes:['driveItem'],
+          query:{ queryString: searchQuery },
+          from:0, size:25,
+          fields:['id','name','webUrl','parentReference','lastModifiedDateTime','listItem']
+        }]
+      })
+    });
     var data = await res.json();
-    if(!res.ok) throw new Error((data.error && data.error.message) || 'Error '+res.status);
-    var files = (data.value||[]).filter(function(f){ return f.name && f.name.toLowerCase().endsWith('.xlsx'); });
-    if(!files.length) { list.innerHTML='<div style="color:#8A909E;padding:16px;text-align:center;">No se encontraron archivos Excel.</div>'; return; }
+    if(!res.ok) throw new Error((data.error&&data.error.message)||'Error '+res.status);
+
+    var hits = [];
+    try {
+      hits = data.value[0].hitsContainers[0].hits || [];
+    } catch(e) { hits = []; }
+
+    var files = hits
+      .map(function(h){ return h.resource; })
+      .filter(function(r){ return r && r.name && r.name.toLowerCase().endsWith('.xlsx'); });
+
+    // Fallback: also fetch recent files from personal drive
+    if(!files.length) {
+      var r2 = await fetch(
+        "https://graph.microsoft.com/v1.0/me/drive/search(q='"+(query||'.xlsx')+"')?$top=25&$select=name,id,parentReference,lastModifiedDateTime",
+        { headers:{ 'Authorization':'Bearer '+SP.token } }
+      );
+      var d2 = await r2.json();
+      files = (d2.value||[]).filter(function(f){ return f.name&&f.name.toLowerCase().endsWith('.xlsx'); });
+    }
+
+    if(!files.length) {
+      list.innerHTML = '<div style="color:#8A909E;padding:16px;text-align:center;">No se encontraron archivos.<br><span style="font-size:11px;">Prueba buscar por el nombre del archivo.</span></div>';
+      return;
+    }
+
     list.innerHTML = '';
     files.forEach(function(f) {
+      var driveId   = f.parentReference && f.parentReference.driveId;
+      var itemId    = f.id;
+      var isSelected = itemId === SP.fileId;
       var btn = document.createElement('button');
-      var isSelected = f.id === SP.fileId;
-      btn.style.cssText = 'display:block;width:100%;text-align:left;background:'+(isSelected?'#FAD2AF':'#F9EEE2')+';border:1px solid '+(isSelected?'#E8B070':'#EEEEEE')+';border-radius:8px;padding:10px 14px;margin-bottom:7px;cursor:pointer;font-family:inherit;transition:background .15s;';
-      var path = (f.parentReference && f.parentReference.path) ? f.parentReference.path.replace('/drive/root:','') : 'Mi OneDrive';
+      btn.style.cssText = 'display:block;width:100%;text-align:left;background:'+(isSelected?'#FAD2AF':'#F9EEE2')+';border:1px solid '+(isSelected?'#E8B070':'#EEEEEE')+';border-radius:8px;padding:10px 14px;margin-bottom:7px;cursor:pointer;font-family:inherit;';
+      var path = (f.parentReference&&f.parentReference.path) ? f.parentReference.path.replace('/drive/root:','').replace('/drives/'+driveId+'/root:','') : '';
+      var site = (f.parentReference&&f.parentReference.siteId) ? 'SharePoint' : 'OneDrive';
       var modDate = f.lastModifiedDateTime ? new Date(f.lastModifiedDateTime).toLocaleDateString('es-PE') : '';
       btn.innerHTML = '<div style="font-size:13px;font-weight:700;color:#282D3C;">📄 '+f.name+'</div>'
-        +'<div style="font-size:10px;color:#8A909E;margin-top:3px;">'+path+(modDate?' · '+modDate:'')+'</div>';
-      btn.addEventListener('mouseenter', function(){ if(f.id!==SP.fileId) btn.style.background='#FAD2AF55'; });
-      btn.addEventListener('mouseleave', function(){ if(f.id!==SP.fileId) btn.style.background='#F9EEE2'; });
-      btn.addEventListener('click', function(){ spLoadFile(f.id, f.name); });
+        +'<div style="font-size:10px;color:#8A909E;margin-top:3px;">'+site+(path?' · '+path:'')+(modDate?' · '+modDate:'')+'</div>';
+      btn.addEventListener('mouseenter', function(){ if(itemId!==SP.fileId) btn.style.background='#FAD2AF55'; });
+      btn.addEventListener('mouseleave', function(){ if(itemId!==SP.fileId) btn.style.background='#F9EEE2'; });
+      btn.addEventListener('click', function(){ spLoadFile(itemId, f.name, driveId); });
       list.appendChild(btn);
     });
   } catch(e) {
@@ -892,7 +949,7 @@ async function spResync() {
   btn.disabled    = true;
   try {
     SP.token = await spGetToken();
-    await spLoadFile(SP.fileId, SP.fileName);
+    await spLoadFile(SP.fileId, SP.fileName, SP.driveId || '');
   } catch(e) {
     alert('Error al resincronizar:\n\n'+e.message);
     btn.textContent = '↺ '+(SP.fileName||'SharePoint');
