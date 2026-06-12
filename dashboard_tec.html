@@ -1079,13 +1079,30 @@ async function getDLUrl(webUrl, fileId, driveId, siteId, token) {
   return null;
 }
 
-window.spLoadFile = async function(fileId, fileName, driveId, siteId, webUrl) {
+window.spLoadFile = async function(fileId, fileName, driveId, siteId, webUrl, directDlUrl) {
   document.getElementById('sp-files-modal').style.display = 'none';
   var btn = document.getElementById('sp-btn');
   btn.textContent = 'Cargando...'; btn.disabled = true;
   try {
-    var dl = await getDLUrl(webUrl, fileId, driveId, siteId, SP.token);
+    var dl = directDlUrl || null;
+
+    if(!dl) {
+      dl = await getDLUrl(webUrl, fileId, driveId, siteId, SP.token);
+    }
+
+    // Fallback: try /me/drive/items/{id} to get downloadUrl
+    if(!dl && fileId && fileId !== 'direct') {
+      try {
+        var mr = await fetch(
+          'https://graph.microsoft.com/v1.0/me/drive/items/'+fileId+'?$select=@microsoft.graph.downloadUrl',
+          { headers:{ 'Authorization':'Bearer '+SP.token } }
+        );
+        if(mr.ok){ var md=await mr.json(); dl=md['@microsoft.graph.downloadUrl']||null; }
+      } catch(e){}
+    }
+
     if(!dl) throw new Error('Sin URL de descarga.\nDebug: '+(window._dbg||'—'));
+
     var res = await fetch(dl);
     if(!res.ok) throw new Error('HTTP '+res.status+' al descargar');
     var buf  = await res.arrayBuffer();
