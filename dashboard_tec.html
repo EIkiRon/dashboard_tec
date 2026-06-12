@@ -203,7 +203,7 @@ td{padding:6px 10px;color:#282D3C;border-bottom:1px solid #F0F0F0;}
       <div class="hdr-label">Dashboard Gerencial</div>
       <h1>Requerimientos de Proyecto</h1>
       <div class="hdr-sub" id="today-label"></div>
-      <div style="font-size:10px;color:#5A6070;margin-top:2px;letter-spacing:.04em;">v1.7 · jun 2026</div>
+      <div style="font-size:10px;color:#FAD2AF;margin-top:2px;letter-spacing:.04em;background:rgba(255,255,255,.1);display:inline-block;padding:2px 8px;border-radius:10px;">v1.9</div>
     </div>
     <div class="hdr-actions">
       <span class="demo-badge" id="demo-badge">datos de ejemplo</span>
@@ -994,21 +994,22 @@ render();
 (function() {
 
 function parseSP(url) {
-  try {
-    var clean = (url||'').split('?')[0];
-    var u = new URL(clean);
-    var path = u.pathname;
-    // Decode percent encoding
-    try { path = decodeURIComponent(path); } catch(e){}
-    // Remove /:x:/r/ /:f:/r/ etc
-    path = path.replace(/^\/:[\w]:\/[a-z]\//, '/');
-    var sm = path.match(/^(\/sites\/[^\/]+|\/teams\/[^\/]+)/i);
-    return {
-      host:     u.hostname,
-      sitePath: sm ? sm[1] : '',
-      filePath: sm ? path.substring(sm[1].length) : path
-    };
-  } catch(e) { return null; }
+  if(!url) return null;
+  var clean = url.split('?')[0].trim();
+  // Use regex instead of new URL() to avoid issues with /:x:/r/ colons
+  var m = clean.match(/^https?:\/\/([^\/]+)(\/.*)?$/i);
+  if(!m) return null;
+  var host = m[1];
+  var path = m[2] || '/';
+  try { path = decodeURIComponent(path); } catch(e){}
+  // Remove SharePoint /:x:/r/ /:f:/r/ etc prefixes
+  path = path.replace(/^\/:[\w]:\/[a-z]+\//, '/');
+  var sm = path.match(/^(\/sites\/[^\/]+|\/teams\/[^\/]+)/i);
+  return {
+    host:     host,
+    sitePath: sm ? sm[1] : '',
+    filePath: sm ? path.substring(sm[1].length) : path
+  };
 }
 
 function encSegments(fp) {
