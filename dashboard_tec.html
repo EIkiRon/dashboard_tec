@@ -758,9 +758,11 @@ function spSave() {
     localStorage.setItem('mgi_cid',      SP.clientId);
     localStorage.setItem('mgi_tid',      SP.tenantId);
     localStorage.setItem('mgi_redirect', SP.redirectUri || '');
-    localStorage.setItem('mgi_fid',      SP.fileId   || '');
-    localStorage.setItem('mgi_fname',    SP.fileName || '');
-    localStorage.setItem('mgi_driveid',  SP.driveId  || '');
+    localStorage.setItem('mgi_fid',      SP.fileId    || '');
+    localStorage.setItem('mgi_fname',    SP.fileName  || '');
+    localStorage.setItem('mgi_driveid',  SP.driveId   || '');
+    localStorage.setItem('mgi_siteid',   SP.siteId    || '');
+    localStorage.setItem('mgi_weburl',   SP.webUrl    || '');
   } catch(e) {}
 }
 
@@ -949,7 +951,7 @@ async function spResync() {
   btn.disabled    = true;
   try {
     SP.token = await spGetToken();
-    await spLoadFile(SP.fileId, SP.fileName, SP.driveId || '');
+    await spLoadFile(SP.fileId, SP.fileName, SP.driveId || '', SP.siteId || '', SP.webUrl || '');
   } catch(e) {
     alert('Error al resincronizar:\n\n'+e.message);
     btn.textContent = '↺ '+(SP.fileName||'SharePoint');
