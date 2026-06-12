@@ -159,13 +159,6 @@ td{padding:6px 10px;color:#282D3C;border-bottom:1px solid #F0F0F0;}
       <button onclick="spSearchFiles()" style="background:#282D3C;color:#FAD2AF;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:700;cursor:pointer;">Buscar</button>
     </div>
     <div id="sp-file-list" style="overflow-y:auto;flex:1;min-height:80px;"></div>
-    <div style="border-top:1px solid #EEEEEE;margin-top:10px;padding-top:10px;">
-      <div style="font-size:11px;color:#8A909E;margin-bottom:6px;">¿No encuentras el archivo? Pega la URL directa de SharePoint:</div>
-      <div style="display:flex;gap:6px;">
-        <input id="sp-direct-url" placeholder="https://empresa.sharepoint.com/sites/..." style="flex:1;border:1.5px solid #EEEEEE;border-radius:8px;padding:7px 10px;font-size:12px;color:#282D3C;font-family:inherit;outline:none;">
-        <button onclick="spLoadFromUrl(document.getElementById('sp-direct-url').value)" style="background:#282D3C;color:#FAD2AF;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">Cargar</button>
-      </div>
-    </div>
     <div style="display:flex;justify-content:flex-end;margin-top:10px;">
       <button onclick="document.getElementById('sp-files-modal').style.display='none'" style="background:#F0F0F0;color:#282D3C;border:none;border-radius:20px;padding:8px 20px;font-size:12px;font-weight:700;cursor:pointer;">Cancelar</button>
     </div>
