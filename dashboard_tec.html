@@ -989,5 +989,130 @@ function render() {
 
 render();
 </script>
+<script>
+// SP override v1.9
+(function() {
+
+function parseSP(url) {
+  try {
+    var clean = (url||'').split('?')[0];
+    var u = new URL(clean);
+    var path = u.pathname;
+    // Decode percent encoding
+    try { path = decodeURIComponent(path); } catch(e){}
+    // Remove /:x:/r/ /:f:/r/ etc
+    path = path.replace(/^\/:[\w]:\/[a-z]\//, '/');
+    var sm = path.match(/^(\/sites\/[^\/]+|\/teams\/[^\/]+)/i);
+    return {
+      host:     u.hostname,
+      sitePath: sm ? sm[1] : '',
+      filePath: sm ? path.substring(sm[1].length) : path
+    };
+  } catch(e) { return null; }
+}
+
+function encSegments(fp) {
+  return fp.split('/').map(function(s){ return s ? encodeURIComponent(s) : ''; }).join('/');
+}
+
+async function gfetch(url, token) {
+  try {
+    var r = await fetch(url, { headers:{ 'Authorization':'Bearer '+token } });
+    var t = '';
+    try { t = await r.text(); } catch(e){}
+    return { ok:r.ok, st:r.status, txt:t };
+  } catch(e) { return { ok:false, st:0, txt:e.message }; }
+}
+
+async function getDLUrl(webUrl, fileId, driveId, siteId, token) {
+  var log = [];
+  var p = parseSP(webUrl);
+  log.push('parse:'+JSON.stringify(p));
+
+  // M0: two-step — get site → get file by path
+  if(p && p.host && p.filePath) {
+    try {
+      var siteEndpoint = 'https://graph.microsoft.com/v1.0/sites/'
+        + p.host + (p.sitePath ? ':'+p.sitePath : '');
+      var sr = await gfetch(siteEndpoint, token);
+      log.push('site['+sr.st+']');
+      if(sr.ok) {
+        var sid = JSON.parse(sr.txt).id;
+        var fp  = encSegments(p.filePath);
+        var fr  = await gfetch('https://graph.microsoft.com/v1.0/sites/'+sid+'/drive/root:'+fp+'?$select=@microsoft.graph.downloadUrl', token);
+        log.push('file['+fr.st+']');
+        if(fr.ok){ var fd=JSON.parse(fr.txt); if(fd['@microsoft.graph.downloadUrl']) return fd['@microsoft.graph.downloadUrl']; }
+        else { log.push(fr.txt.substring(0,100)); }
+      } else { log.push(sr.txt.substring(0,100)); }
+    } catch(e){ log.push('M0 err:'+e.message); }
+  }
+
+  // M1: path direct with explicit sitePath formatting
+  if(p && p.host && p.filePath) {
+    try {
+      var u1 = 'https://graph.microsoft.com/v1.0/sites/'
+        + p.host + ':' + (p.sitePath||'/') + ':'
+        + '/drive/root:' + encSegments(p.filePath)
+        + '?$select=@microsoft.graph.downloadUrl';
+      var r1 = await gfetch(u1, token);
+      log.push('M1['+r1.st+']');
+      if(r1.ok){ var j1=JSON.parse(r1.txt); if(j1['@microsoft.graph.downloadUrl']) return j1['@microsoft.graph.downloadUrl']; }
+    } catch(e){ log.push('M1 err:'+e.message); }
+  }
+
+  // M2: siteId+driveId from search result
+  if(siteId && driveId) {
+    var r2 = await gfetch('https://graph.microsoft.com/v1.0/sites/'+siteId+'/drives/'+driveId+'/items/'+fileId+'?$select=@microsoft.graph.downloadUrl', token);
+    log.push('M2['+r2.st+']');
+    if(r2.ok){ var j2=JSON.parse(r2.txt); if(j2['@microsoft.graph.downloadUrl']) return j2['@microsoft.graph.downloadUrl']; }
+  }
+
+  // M3: siteId only
+  if(siteId) {
+    var r3 = await gfetch('https://graph.microsoft.com/v1.0/sites/'+siteId+'/drive/items/'+fileId+'?$select=@microsoft.graph.downloadUrl', token);
+    log.push('M3['+r3.st+']');
+    if(r3.ok){ var j3=JSON.parse(r3.txt); if(j3['@microsoft.graph.downloadUrl']) return j3['@microsoft.graph.downloadUrl']; }
+  }
+
+  window._dbg = log.join(' | ');
+  return null;
+}
+
+window.spLoadFile = async function(fileId, fileName, driveId, siteId, webUrl) {
+  document.getElementById('sp-files-modal').style.display = 'none';
+  var btn = document.getElementById('sp-btn');
+  btn.textContent = 'Cargando...'; btn.disabled = true;
+  try {
+    var dl = await getDLUrl(webUrl, fileId, driveId, siteId, SP.token);
+    if(!dl) throw new Error('Sin URL de descarga.\nDebug: '+(window._dbg||'—'));
+    var res = await fetch(dl);
+    if(!res.ok) throw new Error('HTTP '+res.status+' al descargar');
+    var buf  = await res.arrayBuffer();
+    var wb   = XLSX.read(buf, {type:'array',codepage:1252});
+    var ws   = wb.Sheets[wb.SheetNames[0]];
+    var rows = XLSX.utils.sheet_to_json(ws);
+    var norm = rows.map(normalize).filter(function(r){ return r.requerimiento&&r.requerimiento!=='—'; });
+    if(!norm.length) throw new Error('No se encontraron datos válidos.');
+    DATA=norm; detectMapping(Object.keys(rows[0]||{}));
+    SP.fileId=fileId; SP.fileName=fileName; SP.driveId=driveId||''; SP.siteId=siteId||''; SP.webUrl=webUrl||'';
+    spSave();
+    document.getElementById('demo-badge').style.display='none';
+    btn.textContent='↺ '+fileName; btn.title='Clic para resincronizar'; btn.disabled=false; btn.onclick=spResync;
+    render();
+  } catch(e) {
+    alert('Error:\n'+e.message);
+    btn.textContent='🔗 SharePoint'; btn.disabled=false; btn.onclick=spConnect;
+  }
+};
+
+window.spLoadFromUrl = async function(directUrl) {
+  if(!directUrl||!directUrl.trim()) return;
+  var name = directUrl.split('/').pop().split('?')[0]||'archivo.xlsx';
+  try { name = decodeURIComponent(name); } catch(e){}
+  await window.spLoadFile('direct', name, '', '', directUrl.trim());
+};
+
+})();
+</script>
 </body>
 </html>
