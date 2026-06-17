@@ -196,7 +196,7 @@ td{padding:6px 10px;color:#282D3C;border-bottom:1px solid #F0F0F0;}
       <div class="hdr-label">Dashboard Gerencial</div>
       <h1>Requerimientos de Proyecto</h1>
       <div class="hdr-sub" id="today-label"></div>
-      <div style="font-size:11px;color:#FAD2AF;margin-top:4px;background:rgba(250,210,175,0.2);border:1px solid rgba(250,210,175,0.4);display:inline-block;padding:2px 10px;border-radius:10px;letter-spacing:.04em;">v4.1 ✓</div>
+      <div style="font-size:11px;color:#FAD2AF;margin-top:4px;background:rgba(250,210,175,0.2);border:1px solid rgba(250,210,175,0.4);display:inline-block;padding:2px 10px;border-radius:10px;letter-spacing:.04em;">v4.2 ✓</div>
     </div>
     <div class="hdr-actions">
       <span class="demo-badge" id="demo-badge">datos de ejemplo</span>
@@ -912,6 +912,35 @@ async function spSearchFiles() {
   }
 }
 
+// ── SharePoint URL parser ──────────────────────────────────────
+function spParseUrl(url) {
+  if(!url) return null;
+  var clean = url.split('?')[0].trim();
+  try { clean = decodeURIComponent(clean); } catch(e){}
+  // Strip SharePoint /:x:/r/ prefixes
+  clean = clean.replace(/\/:[a-z]:(\/[a-z]+\/)/i, '/');
+  var m = clean.match(/^https?:\/\/([^\/]+)(\/.*)?$/i);
+  if(!m) return null;
+  var host = m[1], path = m[2] || '/';
+  var sm = path.match(/^(\/sites\/[^\/]+|\/teams\/[^\/]+)/i);
+  return {
+    host:     host,
+    sitePath: sm ? sm[1] : '',
+    filePath: sm ? path.substring(sm[1].length) : path
+  };
+}
+
+function spEncodeSegs(fp) {
+  return fp.split('/').map(function(s){ return s ? encodeURIComponent(s) : ''; }).join('/');
+}
+
+async function spFetch(url) {
+  var r = await fetch(url, { headers:{ 'Authorization':'Bearer '+SP.token } });
+  if(!r.ok) return null;
+  var d = await r.json();
+  return d['@microsoft.graph.downloadUrl'] || null;
+}
+
 async function spLoadFile(fileId, fileName, driveId, siteId, webUrl) {
   document.getElementById('sp-files-modal').style.display = 'none';
   var btn = document.getElementById('sp-btn');
@@ -920,54 +949,40 @@ async function spLoadFile(fileId, fileName, driveId, siteId, webUrl) {
   try {
     var dlUrl = null;
 
-    // Priority 1: driveId available → use /drives/{driveId}/items/{itemId}
-    if(!dlUrl && driveId && fileId) {
-      try {
-        var r1 = await fetch(
-          'https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+fileId+'?$select=name,@microsoft.graph.downloadUrl',
-          { headers:{ 'Authorization':'Bearer '+SP.token } }
-        );
-        if(r1.ok){ var d1=await r1.json(); dlUrl=d1['@microsoft.graph.downloadUrl']||null; }
-      } catch(e){}
+    // Strategy A: driveId + itemId — most reliable for SP search results
+    if(!dlUrl && driveId && fileId && fileId !== 'direct') {
+      try { dlUrl = await spFetch('https://graph.microsoft.com/v1.0/drives/'+driveId+'/items/'+fileId+'?$select=@microsoft.graph.downloadUrl'); } catch(e){}
     }
 
-    // Priority 2: siteId available → use /sites/{siteId}/drive/items/{itemId}
-    if(!dlUrl && siteId && fileId) {
-      try {
-        var r2 = await fetch(
-          'https://graph.microsoft.com/v1.0/sites/'+siteId+'/drive/items/'+fileId+'?$select=name,@microsoft.graph.downloadUrl',
-          { headers:{ 'Authorization':'Bearer '+SP.token } }
-        );
-        if(r2.ok){ var d2=await r2.json(); dlUrl=d2['@microsoft.graph.downloadUrl']||null; }
-      } catch(e){}
-    }
-
-    // Priority 3: webUrl path resolution via sites API
+    // Strategy B: webUrl — two-step: resolve site id, then lookup file by path
     if(!dlUrl && webUrl) {
       try {
-        var p = webUrl.split('?')[0];
-        var m = p.match(/^https?:\/\/([^\/]+)(\/sites\/[^\/]+)(.*)/i);
-        if(m) {
-          var sr = await fetch('https://graph.microsoft.com/v1.0/sites/'+m[1]+':'+m[2], { headers:{ 'Authorization':'Bearer '+SP.token } });
+        var p = spParseUrl(webUrl);
+        if(p && p.host && p.filePath) {
+          var siteEp = 'https://graph.microsoft.com/v1.0/sites/'+p.host+(p.sitePath?':'+p.sitePath:'');
+          var sr = await fetch(siteEp, { headers:{ 'Authorization':'Bearer '+SP.token } });
           if(sr.ok) {
             var sid = (await sr.json()).id;
-            var fp  = m[3].split('/').map(function(s){ return s?encodeURIComponent(s):''; }).join('/');
-            var fr  = await fetch('https://graph.microsoft.com/v1.0/sites/'+sid+'/drive/root:'+fp+'?$select=@microsoft.graph.downloadUrl', { headers:{ 'Authorization':'Bearer '+SP.token } });
-            if(fr.ok){ var fd=await fr.json(); dlUrl=fd['@microsoft.graph.downloadUrl']||null; }
+            var fp  = spEncodeSegs(p.filePath);
+            try { dlUrl = await spFetch('https://graph.microsoft.com/v1.0/sites/'+sid+'/drive/root:'+fp+'?$select=@microsoft.graph.downloadUrl'); } catch(e){}
           }
         }
       } catch(e){}
     }
 
-    // Priority 4: OneDrive personal fallback (only for personal drive items)
+    // Strategy C: siteId (compound) + driveId — fallback
+    if(!dlUrl && siteId && driveId && fileId && fileId !== 'direct') {
+      try { dlUrl = await spFetch('https://graph.microsoft.com/v1.0/sites/'+siteId+'/drives/'+driveId+'/items/'+fileId+'?$select=@microsoft.graph.downloadUrl'); } catch(e){}
+    }
+
+    // Strategy D: OneDrive personal — only when no SP context
     if(!dlUrl && fileId && fileId !== 'direct' && !driveId && !siteId) {
-      try {
-        var r4 = await fetch(
-          'https://graph.microsoft.com/v1.0/me/drive/items/'+fileId+'?$select=@microsoft.graph.downloadUrl',
-          { headers:{ 'Authorization':'Bearer '+SP.token } }
-        );
-        if(r4.ok){ var d4=await r4.json(); dlUrl=d4['@microsoft.graph.downloadUrl']||null; }
-      } catch(e){}
+      try { dlUrl = await spFetch('https://graph.microsoft.com/v1.0/me/drive/items/'+fileId+'?$select=@microsoft.graph.downloadUrl'); } catch(e){}
+    }
+
+    // Strategy E: direct URL (spLoadFromUrl)
+    if(!dlUrl && fileId === 'direct' && webUrl) {
+      dlUrl = webUrl;
     }
 
     if(!dlUrl) throw new Error('No se pudo obtener el link de descarga.\n\nVerifica que el archivo sea accesible con tu cuenta y que los permisos de la app en Azure AD incluyan Files.Read y Sites.Read.All.');
@@ -1028,6 +1043,14 @@ if(SP.clientId && SP.tenantId && SP.fileId) {
   })();
 }
 
+// Direct URL loader (paste SharePoint URL)
+window.spLoadFromUrl = async function(directUrl) {
+  if(!directUrl||!directUrl.trim()) return;
+  var name = directUrl.split('/').pop().split('?')[0]||'archivo.xlsx';
+  try { name = decodeURIComponent(name); } catch(e){}
+  await spLoadFile('direct', name, '', '', directUrl.trim());
+};
+
 function render() {
   FILTRO = null;
   buildKPIs(DATA);
@@ -1038,104 +1061,6 @@ function render() {
 
 render();
 </script>
-<script>
-// SP override v1.9
-(function() {
 
-function parseSP(url) {
-  if(!url) return null;
-  var clean = url.split('?')[0].trim();
-  // Use regex instead of new URL() to avoid issues with /:x:/r/ colons
-  var m = clean.match(/^https?:\/\/([^\/]+)(\/.*)?$/i);
-  if(!m) return null;
-  var host = m[1];
-  var path = m[2] || '/';
-  try { path = decodeURIComponent(path); } catch(e){}
-  // Remove SharePoint /:x:/r/ /:f:/r/ etc prefixes
-  path = path.replace(/^\/:[\w]:\/[a-z]+\//, '/');
-  var sm = path.match(/^(\/sites\/[^\/]+|\/teams\/[^\/]+)/i);
-  return {
-    host:     host,
-    sitePath: sm ? sm[1] : '',
-    filePath: sm ? path.substring(sm[1].length) : path
-  };
-}
-
-function encSegments(fp) {
-  return fp.split('/').map(function(s){ return s ? encodeURIComponent(s) : ''; }).join('/');
-}
-
-async function gfetch(url, token) {
-  try {
-    var r = await fetch(url, { headers:{ 'Authorization':'Bearer '+token } });
-    var t = '';
-    try { t = await r.text(); } catch(e){}
-    return { ok:r.ok, st:r.status, txt:t };
-  } catch(e) { return { ok:false, st:0, txt:e.message }; }
-}
-
-async function getDLUrl(webUrl, fileId, driveId, siteId, token) {
-  var log = [];
-  var p = parseSP(webUrl);
-  log.push('parse:'+JSON.stringify(p));
-
-  // M0: two-step — get site → get file by path
-  if(p && p.host && p.filePath) {
-    try {
-      var siteEndpoint = 'https://graph.microsoft.com/v1.0/sites/'
-        + p.host + (p.sitePath ? ':'+p.sitePath : '');
-      var sr = await gfetch(siteEndpoint, token);
-      log.push('site['+sr.st+']');
-      if(sr.ok) {
-        var sid = JSON.parse(sr.txt).id;
-        var fp  = encSegments(p.filePath);
-        var fr  = await gfetch('https://graph.microsoft.com/v1.0/sites/'+sid+'/drive/root:'+fp+'?$select=@microsoft.graph.downloadUrl', token);
-        log.push('file['+fr.st+']');
-        if(fr.ok){ var fd=JSON.parse(fr.txt); if(fd['@microsoft.graph.downloadUrl']) return fd['@microsoft.graph.downloadUrl']; }
-        else { log.push(fr.txt.substring(0,100)); }
-      } else { log.push(sr.txt.substring(0,100)); }
-    } catch(e){ log.push('M0 err:'+e.message); }
-  }
-
-  // M1: path direct with explicit sitePath formatting
-  if(p && p.host && p.filePath) {
-    try {
-      var u1 = 'https://graph.microsoft.com/v1.0/sites/'
-        + p.host + ':' + (p.sitePath||'/') + ':'
-        + '/drive/root:' + encSegments(p.filePath)
-        + '?$select=@microsoft.graph.downloadUrl';
-      var r1 = await gfetch(u1, token);
-      log.push('M1['+r1.st+']');
-      if(r1.ok){ var j1=JSON.parse(r1.txt); if(j1['@microsoft.graph.downloadUrl']) return j1['@microsoft.graph.downloadUrl']; }
-    } catch(e){ log.push('M1 err:'+e.message); }
-  }
-
-  // M2: siteId+driveId from search result
-  if(siteId && driveId) {
-    var r2 = await gfetch('https://graph.microsoft.com/v1.0/sites/'+siteId+'/drives/'+driveId+'/items/'+fileId+'?$select=@microsoft.graph.downloadUrl', token);
-    log.push('M2['+r2.st+']');
-    if(r2.ok){ var j2=JSON.parse(r2.txt); if(j2['@microsoft.graph.downloadUrl']) return j2['@microsoft.graph.downloadUrl']; }
-  }
-
-  // M3: siteId only
-  if(siteId) {
-    var r3 = await gfetch('https://graph.microsoft.com/v1.0/sites/'+siteId+'/drive/items/'+fileId+'?$select=@microsoft.graph.downloadUrl', token);
-    log.push('M3['+r3.st+']');
-    if(r3.ok){ var j3=JSON.parse(r3.txt); if(j3['@microsoft.graph.downloadUrl']) return j3['@microsoft.graph.downloadUrl']; }
-  }
-
-  window._dbg = log.join(' | ');
-  return null;
-}
-
-window.spLoadFromUrl = async function(directUrl) {
-  if(!directUrl||!directUrl.trim()) return;
-  var name = directUrl.split('/').pop().split('?')[0]||'archivo.xlsx';
-  try { name = decodeURIComponent(name); } catch(e){}
-  await spLoadFile('direct', name, '', '', directUrl.trim());
-};
-
-})();
-</script>
 </body>
 </html>
