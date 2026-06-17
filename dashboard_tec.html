@@ -196,7 +196,7 @@ td{padding:6px 10px;color:#282D3C;border-bottom:1px solid #F0F0F0;}
       <div class="hdr-label">Dashboard Gerencial</div>
       <h1>Requerimientos de Proyecto</h1>
       <div class="hdr-sub" id="today-label"></div>
-      <div style="font-size:11px;color:#FAD2AF;margin-top:4px;background:rgba(250,210,175,0.2);border:1px solid rgba(250,210,175,0.4);display:inline-block;padding:2px 10px;border-radius:10px;letter-spacing:.04em;">v4.0 ✓</div>
+      <div style="font-size:11px;color:#FAD2AF;margin-top:4px;background:rgba(250,210,175,0.2);border:1px solid rgba(250,210,175,0.4);display:inline-block;padding:2px 10px;border-radius:10px;letter-spacing:.04em;">v4.1 ✓</div>
     </div>
     <div class="hdr-actions">
       <span class="demo-badge" id="demo-badge">datos de ejemplo</span>
@@ -778,7 +778,7 @@ function spGetMSAL() {
       authority:   'https://login.microsoftonline.com/' + SP.tenantId,
       redirectUri: redirectUri
     },
-    cache: { cacheLocation:'sessionStorage', storeAuthStateInCookie:false }
+    cache: { cacheLocation:'localStorage', storeAuthStateInCookie:false }
   });
   return SP.msalApp;
 }
@@ -786,14 +786,17 @@ function spGetMSAL() {
 async function spGetToken() {
   var app    = spGetMSAL();
   var scopes = ['Files.Read','Sites.Read.All'];
+  // 1. Try silent with any cached account
   var accounts = app.getAllAccounts();
   if(accounts.length) {
     try {
       var s = await app.acquireTokenSilent({ scopes:scopes, account:accounts[0] });
-      return s.accessToken;
-    } catch(e) { /* fall through */ }
+      if(s && s.accessToken) return s.accessToken;
+    } catch(e) { /* token expired — fall through to popup */ }
   }
-  var r = await app.loginPopup({ scopes:scopes });
+  // 2. Interactive popup with correct scopes
+  var r = await app.acquireTokenPopup({ scopes:scopes });
+  if(!r || !r.accessToken) throw new Error('No se pudo obtener el token. Intenta de nuevo.');
   return r.accessToken;
 }
 
@@ -1013,15 +1016,16 @@ async function spResync() {
 }
 
 // Si ya hay archivo guardado, mostrar botón de resync al cargar
+// (script está al final del body — DOM ya existe, no necesita DOMContentLoaded)
 if(SP.clientId && SP.tenantId && SP.fileId) {
-  window.addEventListener('DOMContentLoaded', function() {
+  (function() {
     var btn = document.getElementById('sp-btn');
     if(btn && SP.fileName) {
       btn.textContent = '↺ '+SP.fileName;
       btn.title       = 'Clic para resincronizar';
       btn.onclick     = spResync;
     }
-  });
+  })();
 }
 
 function render() {
