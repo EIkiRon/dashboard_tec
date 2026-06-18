@@ -45,11 +45,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#282D3C;backgr
 .kb-hdr.collapsed .kb-arrow{transform:rotate(-90deg);}
 .kb-body{overflow-x:auto;}
 .kb-grid{display:grid;gap:10px;align-items:start;}
-.frente-hdr{border-radius:10px;padding:8px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;}
-.frente-hdr .fn{font-size:12px;font-weight:700;}
+.frente-hdr{border-radius:10px;padding:8px 12px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;background:#fff;border-top:4px solid #ccc;}
+.frente-hdr .fn{font-size:12px;font-weight:700;color:#282D3C;}
 .frente-hdr .fc{text-align:right;}
-.frente-hdr .fv{font-size:13px;font-weight:700;}
-.frente-hdr .fh{font-size:9px;opacity:.65;}
+.frente-hdr .fv{font-size:13px;font-weight:700;color:#282D3C;}
+.frente-hdr .fh{font-size:9px;color:#8A909E;}
 .estado-hdr{border-radius:7px;padding:5px 9px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;}
 .estado-hdr .en{font-size:10px;font-weight:700;color:#282D3C;}
 .estado-hdr .em{font-size:9px;color:#282D3C;opacity:.7;}
@@ -196,7 +196,7 @@ td{padding:6px 10px;color:#282D3C;border-bottom:1px solid #F0F0F0;}
       <div class="hdr-label">Dashboard Gerencial</div>
       <h1>Requerimientos de Proyecto</h1>
       <div class="hdr-sub" id="today-label"></div>
-      <div style="font-size:11px;color:#FAD2AF;margin-top:4px;background:rgba(250,210,175,0.2);border:1px solid rgba(250,210,175,0.4);display:inline-block;padding:2px 10px;border-radius:10px;letter-spacing:.04em;">v4.4 ✓</div>
+      <div style="font-size:11px;color:#FAD2AF;margin-top:4px;background:rgba(250,210,175,0.2);border:1px solid rgba(250,210,175,0.4);display:inline-block;padding:2px 10px;border-radius:10px;letter-spacing:.04em;">v4.5 ✓</div>
     </div>
     <div class="hdr-actions">
       <span class="demo-badge" id="demo-badge">datos de ejemplo</span>
@@ -454,11 +454,11 @@ function buildKanban(containerId, estados, sourceData, frenteKeys, theme) {
 
     var fhdr = document.createElement("div");
     fhdr.className = "frente-hdr";
-    fhdr.style.background = fs.color;
-    var fnSp = document.createElement("span"); fnSp.className="fn"; fnSp.style.color=fs.text; fnSp.textContent=f;
+    fhdr.style.borderTopColor = fs.color;
+    var fnSp = document.createElement("span"); fnSp.className="fn"; fnSp.textContent=f;
     var fcDiv = document.createElement("div"); fcDiv.className="fc";
-    var fvDiv = document.createElement("div"); fvDiv.className="fv"; fvDiv.style.color=fs.text; fvDiv.textContent=fData.length;
-    var fhDiv = document.createElement("div"); fhDiv.className="fh"; fhDiv.style.color=fs.text; fhDiv.textContent=fHH+" HH";
+    var fvDiv = document.createElement("div"); fvDiv.className="fv"; fvDiv.textContent=fData.length;
+    var fhDiv = document.createElement("div"); fhDiv.className="fh"; fhDiv.textContent=fHH+" HH";
     fcDiv.appendChild(fvDiv); fcDiv.appendChild(fhDiv);
     fhdr.appendChild(fnSp); fhdr.appendChild(fcDiv);
     col.appendChild(fhdr);
