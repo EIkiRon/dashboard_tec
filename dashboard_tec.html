@@ -23,10 +23,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#282D3C;backgr
 .kpi-dark .lbl{font-size:11px;color:#FAD2AF;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;}
 .kpi-dark .val{font-size:24px;font-weight:700;color:#fff;}
 .kpi-dark .sub{font-size:10px;color:#B0B7C9;margin-top:2px;}
-.kpi-light{border-radius:10px;padding:12px 14px;}
-.kpi-light .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;opacity:.75;}
-.kpi-light .val{font-size:24px;font-weight:700;}
-.kpi-light .sub{font-size:10px;margin-top:2px;opacity:.65;}
+.kpi-light{border-radius:10px;padding:12px 14px;background:#fff;border-top:4px solid #ccc;}
+.kpi-light .lbl{font-size:11px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;color:#8A909E;}
+.kpi-light .val{font-size:24px;font-weight:700;color:#282D3C;}
+.kpi-light .sub{font-size:10px;margin-top:2px;color:#8A909E;}
 .filtro-bar{background:#F9EEE2;border:1px solid #FAD2AF;border-radius:10px;padding:9px 14px;margin-bottom:10px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;}
 .filtro-bar label{display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:12px;color:#282D3C;}
 .filtro-bar input[type=checkbox]{accent-color:#282D3C;width:14px;height:14px;}
@@ -70,7 +70,7 @@ thead tr{background:#282D3C;}
 th{padding:8px 10px;text-align:left;font-size:10px;font-weight:600;color:#FAD2AF;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;}
 td{padding:6px 10px;color:#282D3C;border-bottom:1px solid #F0F0F0;}
 .tr-odd td{background:#fff;}
-.tr-even td{background:#F9EEE2;}
+.tr-even td{background:#F7FAFF;}
 .pill{font-size:10px;padding:2px 8px;border-radius:20px;font-weight:600;color:#282D3C;display:inline-block;white-space:nowrap;}
 /* Popup */
 #popup-overlay{
@@ -196,7 +196,7 @@ td{padding:6px 10px;color:#282D3C;border-bottom:1px solid #F0F0F0;}
       <div class="hdr-label">Dashboard Gerencial</div>
       <h1>Requerimientos de Proyecto</h1>
       <div class="hdr-sub" id="today-label"></div>
-      <div style="font-size:11px;color:#FAD2AF;margin-top:4px;background:rgba(250,210,175,0.2);border:1px solid rgba(250,210,175,0.4);display:inline-block;padding:2px 10px;border-radius:10px;letter-spacing:.04em;">v4.2 ✓</div>
+      <div style="font-size:11px;color:#FAD2AF;margin-top:4px;background:rgba(250,210,175,0.2);border:1px solid rgba(250,210,175,0.4);display:inline-block;padding:2px 10px;border-radius:10px;letter-spacing:.04em;">v4.4 ✓</div>
     </div>
     <div class="hdr-actions">
       <span class="demo-badge" id="demo-badge">datos de ejemplo</span>
@@ -706,8 +706,8 @@ function buildKPIs(data) {
 
   fk.forEach(function(f) {
     var fs = getFrente(f);
-    var card = document.createElement("div"); card.className="kpi-light"; card.style.background=fs.color;
-    card.innerHTML='<div class="lbl" style="color:'+fs.text+';">'+f+'</div><div class="val" style="color:'+fs.text+';">'+(byFrente[f]||0)+'</div><div class="sub" style="color:'+fs.text+';">'+(hhByFrente[f]||0)+' HH</div>';
+    var card = document.createElement("div"); card.className="kpi-light"; card.style.borderTopColor=fs.color;
+    card.innerHTML='<div class="lbl">'+f+'</div><div class="val">'+(byFrente[f]||0)+'</div><div class="sub">'+(hhByFrente[f]||0)+' HH</div>';
     grid.appendChild(card);
   });
 }
