@@ -295,25 +295,26 @@ function normalize(row) {
     complejidad:   comp,
     notas:         g(["notas","nota","comentario","observacion","descripcion"]),
     asignados:     g(["asignado","asignados","responsable","responsables","assignee"])
-                     .split(",").map(function(a){ return a.trim(); }).filter(Boolean)
+                     .split(",").map(function(a){ return a.trim(); }).filter(Boolean),
+    okr:           g(["okr","objetivo","objetivo clave","key result"])
   };
 }
 
 // ── Demo ───────────────────────────────────────────────────────
 var DEMO = [
-  {requerimiento:"REQ-001",estado:"En proceso", frente:"Procesos MGi",complejidad:"Media",notas:"En revisión con el cliente, pendiente aprobación final",asignados:["Ana","Luis"]},
-  {requerimiento:"REQ-002",estado:"Pendiente",  frente:"MGi Core",    complejidad:"Alta", notas:"",asignados:["Carlos"]},
-  {requerimiento:"REQ-003",estado:"Completado", frente:"Procesos MGi",complejidad:"Baja", notas:"Aprobado por el equipo",asignados:["Ana"]},
-  {requerimiento:"REQ-004",estado:"En proceso", frente:"Magi",        complejidad:"Media",notas:"",asignados:["Luis","María"]},
-  {requerimiento:"REQ-005",estado:"Pendiente",  frente:"MGi Core",    complejidad:"Alta", notas:"Espera definición del alcance con el área de negocio",asignados:["Carlos","Ana"]},
-  {requerimiento:"REQ-006",estado:"Completado", frente:"Migo",        complejidad:"Alta", notas:"",asignados:["María"]},
-  {requerimiento:"REQ-007",estado:"Planificado",frente:"Procesos MGi",complejidad:"Baja", notas:"Sprint 3 - coordinar con Keill",asignados:["Luis"]},
-  {requerimiento:"REQ-008",estado:"Pendiente",  frente:"Magi",        complejidad:"Media",notas:"",asignados:["Ana"]},
-  {requerimiento:"REQ-009",estado:"En proceso", frente:"MGi Core",    complejidad:"Baja", notas:"",asignados:["Carlos"]},
-  {requerimiento:"REQ-010",estado:"Bloqueado",  frente:"Migo",        complejidad:"Alta", notas:"Pendiente acceso a base de datos de producción",asignados:["María","Luis"]},
-  {requerimiento:"REQ-011",estado:"Planificado",frente:"Factor",      complejidad:"Media",notas:"",asignados:["Ana"]},
-  {requerimiento:"REQ-012",estado:"Completado", frente:"Invierte",    complejidad:"Baja", notas:"",asignados:["Carlos"]},
-  {requerimiento:"REQ-013",estado:"Descartado", frente:"MGi Core",    complejidad:"Baja", notas:"Fuera de alcance del proyecto",asignados:["Luis"]},
+  {requerimiento:"REQ-001",estado:"En proceso", frente:"Procesos MGi",complejidad:"Media",notas:"En revisión con el cliente, pendiente aprobación final",asignados:["Ana","Luis"],okr:"OKR-1"},
+  {requerimiento:"REQ-002",estado:"Pendiente",  frente:"MGi Core",    complejidad:"Alta", notas:"",asignados:["Carlos"],okr:"OKR-2"},
+  {requerimiento:"REQ-003",estado:"Completado", frente:"Procesos MGi",complejidad:"Baja", notas:"Aprobado por el equipo",asignados:["Ana"],okr:"OKR-1"},
+  {requerimiento:"REQ-004",estado:"En proceso", frente:"Magi",        complejidad:"Media",notas:"",asignados:["Luis","María"],okr:"OKR-3"},
+  {requerimiento:"REQ-005",estado:"Pendiente",  frente:"MGi Core",    complejidad:"Alta", notas:"Espera definición del alcance con el área de negocio",asignados:["Carlos","Ana"],okr:"OKR-2"},
+  {requerimiento:"REQ-006",estado:"Completado", frente:"Migo",        complejidad:"Alta", notas:"",asignados:["María"],okr:"OKR-3"},
+  {requerimiento:"REQ-007",estado:"Planificado",frente:"Procesos MGi",complejidad:"Baja", notas:"Sprint 3 - coordinar con Keill",asignados:["Luis"],okr:"OKR-1"},
+  {requerimiento:"REQ-008",estado:"Pendiente",  frente:"Magi",        complejidad:"Media",notas:"",asignados:["Ana"],okr:"OKR-2"},
+  {requerimiento:"REQ-009",estado:"En proceso", frente:"MGi Core",    complejidad:"Baja", notas:"",asignados:["Carlos"],okr:"OKR-3"},
+  {requerimiento:"REQ-010",estado:"Bloqueado",  frente:"Migo",        complejidad:"Alta", notas:"Pendiente acceso a base de datos de producción",asignados:["María","Luis"],okr:"OKR-1"},
+  {requerimiento:"REQ-011",estado:"Planificado",frente:"Factor",      complejidad:"Media",notas:"",asignados:["Ana"],okr:"OKR-2"},
+  {requerimiento:"REQ-012",estado:"Completado", frente:"Invierte",    complejidad:"Baja", notas:"",asignados:["Carlos"],okr:"OKR-3"},
+  {requerimiento:"REQ-013",estado:"Descartado", frente:"MGi Core",    complejidad:"Baja", notas:"Fuera de alcance del proyecto",asignados:["Luis"],okr:""},
 ];
 var DATA   = DEMO;
 var FILTRO = null;
@@ -339,6 +340,7 @@ function detectMapping(headers) {
     complejidad:   findH(["complejidad","nivel","complex"]),
     notas:         findH(["notas","nota","comentario","observacion","descripcion"]),
     asignados:     findH(["asignado","asignados","responsable","responsables","assignee"]),
+    okr:           findH(["okr","objetivo","objetivo clave","key result"]),
   };
 }
 
@@ -488,6 +490,13 @@ function buildKanban(containerId, estados, sourceData, frenteKeys, theme) {
         rid.textContent = d.requerimiento;
         card.appendChild(rid);
 
+        if(d.okr && d.okr.trim()) {
+          var okrBadge = document.createElement("div");
+          okrBadge.style.cssText = "font-size:9px;font-weight:600;color:#5A6070;background:#F0F0F0;border-radius:4px;padding:1px 6px;display:inline-block;margin-bottom:2px;";
+          okrBadge.textContent = d.okr;
+          card.appendChild(okrBadge);
+        }
+
         if(d.asignados && d.asignados.length) {
           var tags = document.createElement("div");
           tags.className = "task-tags";
@@ -611,7 +620,7 @@ function buildList(data) {
   var table = document.createElement("table");
   var thead = document.createElement("thead");
   var hr = document.createElement("tr");
-  ["#","Requerimiento","Estado","Frente","Complejidad","Asignados","HH est.","Notas"].forEach(function(h){
+  ["#","Requerimiento","OKR","Estado","Frente","Complejidad","Asignados","HH est.","Notas"].forEach(function(h){
     var th = document.createElement("th"); th.textContent=h; hr.appendChild(th);
   });
   thead.appendChild(hr); table.appendChild(thead);
@@ -640,6 +649,17 @@ function buildList(data) {
 
     addCell(String(i+1), "color:#8A909E;font-size:11px;");
     addCell(d.requerimiento, "font-weight:700;white-space:nowrap;");
+    // OKR cell
+    var okrTd = document.createElement("td");
+    if(d.okr && d.okr.trim()) {
+      var okrPill = document.createElement("span"); okrPill.className="pill";
+      okrPill.style.background="#F0F0F0"; okrPill.style.color="#5A6070";
+      okrPill.textContent = d.okr;
+      okrTd.appendChild(okrPill);
+    } else {
+      okrTd.textContent="—"; okrTd.style.color="#8A909E";
+    }
+    tr.appendChild(okrTd);
     // Estado cell — dropdown
     var estadoTd = document.createElement("td");
     (function(item){
@@ -714,8 +734,8 @@ function buildKPIs(data) {
 
 // ── Render ─────────────────────────────────────────────────────
 function exportExcel() {
-  var FALLBACK = { requerimiento:"Requerimiento", estado:"Estado", frente:"Frente", complejidad:"Complejidad", notas:"Notas", asignados:"Asignado" };
-  var fields   = ["requerimiento","estado","frente","complejidad","notas","asignados"];
+  var FALLBACK = { requerimiento:"Requerimiento", estado:"Estado", frente:"Frente", complejidad:"Complejidad", notas:"Notas", asignados:"Asignado", okr:"OKR" };
+  var fields   = ["requerimiento","okr","estado","frente","complejidad","notas","asignados"];
 
   // Sort fields by original header order
   if(ORIGINAL_HEADERS.length) {
