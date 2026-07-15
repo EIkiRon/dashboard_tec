@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cuestionario · Guía completa de Claude</title>
+<style>
+  :root{
+    --azul-oscuro:#282D3C;
+    --salmon:#FAD2AF;
+    --salmon-claro:#F9EEE2;
+    --verde:#94CFBB;
+    --morado:#B0B7C9;
+    --rosado:#FFC0B4;
+    --celeste:#D2EBEB;
+    --gris:#EEEEEE;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Sharp Sans','Helvetica Neue',Arial,sans-serif;
+    background:var(--salmon-claro);
+    color:var(--azul-oscuro);
+  }
+  header{
+    background:var(--azul-oscuro);
+    color:#fff;
+    padding:28px 20px;
+    text-align:center;
+  }
+  header h1{margin:0 0 6px 0; font-size:1.5rem;}
+  header p{margin:0; color:var(--salmon); font-size:0.95rem;}
+  main{
+    max-width:720px;
+    margin:0 auto;
+    padding:24px 16px 80px;
+  }
+  .card{
+    background:#fff;
+    border-radius:14px;
+    padding:24px;
+    margin-bottom:20px;
+    box-shadow:0 2px 10px rgba(40,45,60,0.08);
+  }
+  .section-title{
+    font-size:0.85rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    color:var(--azul-oscuro);
+    background:var(--celeste);
+    display:inline-block;
+    padding:4px 12px;
+    border-radius:999px;
+    margin:28px 0 14px;
+  }
+  .question{margin-bottom:18px;}
+  .question p.qtext{font-weight:600; margin:0 0 10px;}
+  label.opt{
+    display:block;
+    padding:10px 14px;
+    border:1px solid var(--gris);
+    border-radius:10px;
+    margin-bottom:8px;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  label.opt:hover{border-color:var(--morado);}
+  label.opt input{margin-right:10px;}
+  input[type="text"], input[type="email"]{
+    width:100%;
+    padding:12px 14px;
+    border:1px solid var(--gris);
+    border-radius:10px;
+    font-size:1rem;
+  }
+  button{
+    background:var(--azul-oscuro);
+    color:#fff;
+    border:none;
+    padding:14px 22px;
+    border-radius:10px;
+    font-size:1rem;
+    font-weight:600;
+    cursor:pointer;
+    width:100%;
+  }
+  button:hover{opacity:0.92;}
+  button:disabled{opacity:0.5; cursor:not-allowed;}
+  .error{color:#B3261E; font-size:0.9rem; margin-top:8px;}
+  .hidden{display:none !important;}
+  .score-badge{
+    text-align:center;
+    padding:28px 20px;
+    border-radius:14px;
+    margin-bottom:20px;
+  }
+  .score-badge.pass{background:var(--verde);}
+  .score-badge.fail{background:var(--rosado);}
+  .score-badge h2{margin:0 0 6px; font-size:2.2rem;}
+  .score-badge p{margin:0; font-size:1rem;}
+  .detail-item{
+    display:flex;
+    gap:10px;
+    padding:12px 0;
+    border-bottom:1px solid var(--gris);
+  }
+  .detail-item:last-child{border-bottom:none;}
+  .tag{
+    flex-shrink:0;
+    font-size:0.75rem;
+    font-weight:700;
+    padding:2px 10px;
+    border-radius:999px;
+    height:fit-content;
+  }
+  .tag.ok{background:var(--verde); color:var(--azul-oscuro);}
+  .tag.bad{background:var(--rosado); color:var(--azul-oscuro);}
+  .detail-text p{margin:0 0 4px; font-size:0.92rem;}
+  .detail-text .correct{font-size:0.85rem; color:#555;}
+  footer{
+    text-align:center;
+    font-size:0.8rem;
+    color:#888;
+    padding:20px;
+  }
+  .loading{text-align:center; padding:40px; color:#888;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cuestionario de validación</h1>
+  <p>Guía completa de Claude · de 0 a 100</p>
+</header>
+
+<main>
+
+  <!-- PASO 1: registro -->
+  <section id="step-email" class="card">
+    <p class="qtext">Ingresa tu correo para comenzar</p>
+    <input type="email" id="email-input" placeholder="nombre@empresa.com" autocomplete="email">
+    <div id="email-error" class="error hidden"></div>
+    <br>
+    <button id="btn-start">Comenzar</button>
+  </section>
+
+  <!-- PASO 2: preguntas -->
+  <form id="step-quiz" class="hidden">
+    <div id="questions-container"></div>
+    <div id="submit-error" class="error hidden"></div>
+    <button type="submit" id="btn-submit">Enviar respuestas</button>
+  </form>
+
+  <!-- PASO 3: resultado -->
+  <section id="step-result" class="hidden">
+    <div id="score-badge" class="score-badge">
+      <h2 id="score-number">0/0</h2>
+      <p id="score-text">0%</p>
+    </div>
+    <div class="card">
+      <p class="qtext" style="margin-bottom:14px;">Detalle de respuestas</p>
+      <div id="detail-list"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>MGi · Cuestionario generado a partir de la guía de Claude</footer>
+
+<script>
+// ⚠️ Reemplaza esta URL por la de tu propio despliegue de Google Apps Script
+// (termina en /exec). Instrucciones en README.md.
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxhH7vMeToGOSaC7J04iTdqhocOe-0SpexrEZC7KgC7g50Z43N0BAG9P37xMQhzAAmR/exec";
+
+let QUESTIONS = [];
+let userEmail = "";
+
+const stepEmail = document.getElementById("step-email");
+const stepQuiz = document.getElementById("step-quiz");
+const stepResult = document.getElementById("step-result");
+
+document.getElementById("btn-start").addEventListener("click", async () => {
+  const emailInput = document.getElementById("email-input");
+  const errorEl = document.getElementById("email-error");
+  const email = emailInput.value.trim();
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    errorEl.textContent = "Ingresa un correo válido.";
+    errorEl.classList.remove("hidden");
+    return;
+  }
+  if (APPS_SCRIPT_URL.indexOf("PEGA_AQUI") !== -1) {
+    errorEl.textContent = "Falta configurar APPS_SCRIPT_URL en el código (ver README.md).";
+    errorEl.classList.remove("hidden");
+    return;
+  }
+  errorEl.classList.add("hidden");
+  userEmail = email;
+
+  const btn = document.getElementById("btn-start");
+  btn.disabled = true;
+  btn.textContent = "Cargando...";
+
+  try {
+    await loadQuestions();
+    stepEmail.classList.add("hidden");
+    stepQuiz.classList.remove("hidden");
+  } catch (err) {
+    errorEl.textContent = "No se pudieron cargar las preguntas. Verifica la URL de Apps Script.";
+    errorEl.classList.remove("hidden");
+    btn.disabled = false;
+    btn.textContent = "Comenzar";
+  }
+});
+
+async function loadQuestions() {
+  const res = await fetch(APPS_SCRIPT_URL);
+  QUESTIONS = await res.json();
+  renderQuestions();
+}
+
+function renderQuestions() {
+  const container = document.getElementById("questions-container");
+  container.innerHTML = "";
+  let lastSection = null;
+
+  QUESTIONS.forEach((q, idx) => {
+    if (q.section !== lastSection) {
+      const h = document.createElement("div");
+      h.className = "section-title";
+      h.textContent = q.section;
+      container.appendChild(h);
+      lastSection = q.section;
+    }
+
+    const wrap = document.createElement("div");
+    wrap.className = "card question";
+
+    const p = document.createElement("p");
+    p.className = "qtext";
+    p.textContent = `${idx + 1}. ${q.text}`;
+    wrap.appendChild(p);
+
+    if (q.type === "mcq") {
+      q.options.forEach((opt, i) => {
+        const label = document.createElement("label");
+        label.className = "opt";
+        label.innerHTML = `<input type="radio" name="${q.id}" value="${i}" required> ${opt}`;
+        wrap.appendChild(label);
+      });
+    } else if (q.type === "short") {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.name = q.id;
+      input.required = true;
+      input.placeholder = "Escribe tu respuesta";
+      wrap.appendChild(input);
+    }
+
+    container.appendChild(wrap);
+  });
+}
+
+document.getElementById("step-quiz").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const btn = document.getElementById("btn-submit");
+  const errorEl = document.getElementById("submit-error");
+  errorEl.classList.add("hidden");
+
+  const answers = {};
+  for (const q of QUESTIONS) {
+    if (q.type === "mcq") {
+      const checked = document.querySelector(`input[name="${q.id}"]:checked`);
+      if (!checked) {
+        errorEl.textContent = "Por favor responde todas las preguntas antes de enviar.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+      answers[q.id] = checked.value;
+    } else if (q.type === "short") {
+      const input = document.querySelector(`input[name="${q.id}"]`);
+      if (!input.value.trim()) {
+        errorEl.textContent = "Por favor responde todas las preguntas antes de enviar.";
+        errorEl.classList.remove("hidden");
+        return;
+      }
+      answers[q.id] = input.value.trim();
+    }
+  }
+
+  btn.disabled = true;
+  btn.textContent = "Enviando...";
+
+  try {
+    // Content-Type "text/plain" evita el preflight CORS que Apps Script no maneja.
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ email: userEmail, answers })
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      errorEl.textContent = data.error;
+      errorEl.classList.remove("hidden");
+      btn.disabled = false;
+      btn.textContent = "Enviar respuestas";
+      return;
+    }
+
+    showResult(data);
+  } catch (err) {
+    errorEl.textContent = "No se pudo conectar con el servidor. Verifica la URL de Apps Script y que el despliegue tenga acceso 'Cualquier usuario'.";
+    errorEl.classList.remove("hidden");
+    btn.disabled = false;
+    btn.textContent = "Enviar respuestas";
+  }
+});
+
+function showResult(data) {
+  stepQuiz.classList.add("hidden");
+  stepResult.classList.remove("hidden");
+
+  const badge = document.getElementById("score-badge");
+  const pass = data.porcentaje >= 70;
+  badge.className = "score-badge " + (pass ? "pass" : "fail");
+  document.getElementById("score-number").textContent = `${data.puntaje}/${data.total}`;
+  document.getElementById("score-text").textContent =
+    (data.alreadySubmitted ? "Ya habías completado este cuestionario · " : "") +
+    `${data.porcentaje}% de aciertos` + (pass ? " · ¡Aprobado!" : " · Sigue repasando la guía");
+
+  const detailList = document.getElementById("detail-list");
+  detailList.innerHTML = "";
+
+  if (data.alreadySubmitted) {
+    detailList.innerHTML = "<p>No mostramos el detalle porque ya habías respondido este cuestionario anteriormente.</p>";
+    return;
+  }
+
+  data.details.forEach((d, idx) => {
+    const item = document.createElement("div");
+    item.className = "detail-item";
+    item.innerHTML = `
+      <span class="tag ${d.correct ? "ok" : "bad"}">${d.correct ? "OK" : "X"}</span>
+      <div class="detail-text">
+        <p>${idx + 1}. ${d.text}</p>
+        ${d.correct ? "" : `<p class="correct">Respuesta correcta: ${d.correctAnswer}</p>`}
+      </div>
+    `;
+    detailList.appendChild(item);
+  });
+}
+</script>
+
+</body>
+</html>
